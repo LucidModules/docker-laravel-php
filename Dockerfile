@@ -22,3 +22,7 @@ RUN apt install -y \
     && pecl install redis && docker-php-ext-enable redis \
     && pecl install imagick && docker-php-ext-enable imagick \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl https://frankenphp.dev/install.sh | sh \
+    && mv frankenphp /usr/local/bin/ \
+    && chmod +x /usr/local/bin/frankenphp
