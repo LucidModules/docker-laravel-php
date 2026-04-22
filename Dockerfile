@@ -1,4 +1,4 @@
-FROM dunglas/frankenphp:1.12.1-php8.4.19
+FROM dunglas/frankenphp:1.12.2-php8.5.5
 
 RUN apt-get update && apt-get install -y \
         libzip-dev libicu-dev libcurl4-openssl-dev \
