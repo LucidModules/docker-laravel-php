@@ -1,4 +1,7 @@
-FROM dunglas/frankenphp:1.12.2-php8.5.5
+ARG FRANKENPHP_VERSION=1.12.6
+ARG PHP_VERSION=8.5.8
+
+FROM dunglas/frankenphp:${FRANKENPHP_VERSION}-php${PHP_VERSION}
 
 RUN apt-get update && apt-get install -y \
         libzip-dev libicu-dev libcurl4-openssl-dev \
