@@ -9,6 +9,6 @@ RUN apt-get update && apt-get install -y \
         libpq-dev unzip curl \
         imagemagick libmagickwand-dev \
     && install-php-extensions \
-        bcmath pgsql pdo_pgsql zip pcntl \
+        bcmath intl pgsql pdo_pgsql zip pcntl \
         redis imagick opcache \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/*
