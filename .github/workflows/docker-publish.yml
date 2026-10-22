@@ -5,6 +5,11 @@ on:
     # Weekly rebuild: picks up new FrankenPHP/PHP releases and base image security fixes.
     - cron: '0 3 * * 0'
   workflow_dispatch:
+    inputs:
+      frankenphp_version:
+        description: 'Exact FrankenPHP release to build on, e.g. 1.13.2 (empty = the highest available)'
+        required: false
+        default: ''
   push:
     branches: [ "master" ]
   pull_request:
@@ -24,6 +29,8 @@ jobs:
 
       - name: Discover latest FrankenPHP versions
         id: discover
+        env:
+          FRANKENPHP_VERSION: ${{ inputs.frankenphp_version }}
         run: python3 .github/scripts/discover.py
 
   build:
