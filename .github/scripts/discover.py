@@ -3,7 +3,13 @@
 and emit a GitHub Actions build matrix.
 
 FrankenPHP tags look like "1.12.6-php8.5.8". For each PHP line we take the highest
-PHP patch available, and for that patch the highest FrankenPHP version."""
+PHP patch available, and for that patch the highest FrankenPHP version. Set
+FRANKENPHP_VERSION (the workflow_dispatch input) to require that exact FrankenPHP
+release instead: the run fails rather than build an older one.
+
+Besides the moving tags (8.5.12, 8.5, 8, latest), every image gets
+"<php>-frankenphp<frankenphp>", e.g. "8.5.12-frankenphp1.13.2". Apps pin that one,
+so the tag alone says which PHP and FrankenPHP they run."""
 import functools
 import json
 import os
@@ -15,6 +21,7 @@ import urllib.parse
 import urllib.request
 
 IMAGE = os.environ.get("IMAGE", "docker.io/lucidmodules/docker-laravel-php")
+REQUIRED_FRANKENPHP = os.environ.get("FRANKENPHP_VERSION", "").strip()
 
 
 RETRY_STATUSES = {403, 429, 500, 502, 503, 504}
@@ -72,6 +79,8 @@ def latest_frankenphp(line):
     for tag in hub_tags("dunglas/frankenphp"):
         if m := pattern.fullmatch(tag):
             fp = tuple(map(int, m.group(1, 2, 3)))
+            if REQUIRED_FRANKENPHP and ".".join(map(str, fp)) != REQUIRED_FRANKENPHP:
+                continue
             php_patch = int(m.group(4))
             candidates.append((php_patch, fp))
     if not candidates:
@@ -88,6 +97,8 @@ def main():
     for line in lines:
         frankenphp_version, php_version = latest_frankenphp(line)
         if not php_version:
+            if REQUIRED_FRANKENPHP:
+                sys.exit(f"no dunglas/frankenphp:{REQUIRED_FRANKENPHP}-php{line}.* tag")
             print(f"::warning::no frankenphp tag found for php {line}, skipping {line}", file=sys.stderr)
             continue
         available.append((line, frankenphp_version, php_version))
@@ -98,7 +109,7 @@ def main():
     newest = available[-1][0]
     entries = []
     for line, frankenphp_version, php_version in available:
-        tags = [php_version, line]
+        tags = [f"{php_version}-frankenphp{frankenphp_version}", php_version, line]
         if line == newest:
             tags += [line.split(".")[0], "latest"]
         entries.append({
