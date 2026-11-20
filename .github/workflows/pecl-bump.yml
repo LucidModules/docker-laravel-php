@@ -1,0 +1,70 @@
+name: Propose PECL extension updates
+
+# Weekly: if a pinned PECL extension (redis, imagick) has a stable release at least 7 days old,
+# record its sha256, test-build the image, and open a pull request for review.
+# Pull requests opened with GITHUB_TOKEN don't trigger other workflows, so the test build happens here.
+on:
+  schedule:
+    - cron: '23 4 * * 1'   # Mondays 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pecl-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check PECL for updates
+        id: bump
+        run: |
+          python3 .github/scripts/pecl_bump.py > "$RUNNER_TEMP/summary.md"
+          if [ -s "$RUNNER_TEMP/summary.md" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Set up Docker Buildx
+        if: steps.bump.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Test build (amd64, not pushed)
+        if: steps.bump.outputs.changed == 'true'
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: .
+          push: false
+          pull: true
+          platforms: linux/amd64
+
+      - name: Open pull request
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="pecl-bump/$(date -u +%Y-%m-%d)"
+          if gh pr list --state open --search "head:pecl-bump/" --json number -q '.[0].number' | grep -q .; then
+            echo "::notice::a PECL bump pull request is already open; not opening another"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "Bump pinned PECL extensions"
+          git push origin "$branch"
+          {
+            echo "Automated PECL extension update (release at least 7 days old; image test-built for amd64)."
+            echo
+            cat "$RUNNER_TEMP/summary.md"
+            echo
+            echo "The sha256 was recorded on first download (PECL publishes no checksums)."
+            echo "Review the changelog before merging. Merging rebuilds and publishes the images."
+          } > "$RUNNER_TEMP/body.md"
+          gh pr create --base master --head "$branch" --title "Bump pinned PECL extensions" --body-file "$RUNNER_TEMP/body.md"
